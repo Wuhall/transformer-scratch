@@ -14,8 +14,7 @@ from torchtext.vocab import build_vocab_from_iterator
 from tqdm import tqdm
 
 from src.models.transformer import Transformer
-from src.utils.optimizer import AdamW
-from src.utils.loss import LabelSmoothingCrossEntropy
+# from src.utils.loss import LabelSmoothingCrossEntropy
 
 # 设置随机种子
 torch.manual_seed(42)
@@ -94,8 +93,8 @@ model = Transformer(
 )
 
 # 损失函数和优化器
-criterion = LabelSmoothingCrossEntropy(smoothing=0.1)
-optimizer = AdamW(model.parameters(), lr=LEARNING_RATE)
+criterion = nn.CrossEntropyLoss()
+optimizer = torch.optim.AdamW(model.parameters(), lr=LEARNING_RATE)
 
 # 训练函数
 def train_epoch(model, loader, criterion, optimizer, device):
