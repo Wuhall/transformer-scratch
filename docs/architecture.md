@@ -182,6 +182,194 @@ def positional_encoding(position, d_model):
 3. 自定义的层结构
 4. 不同的优化策略
 
+
+## 代码结构
+
+1. **整体架构** (`src/models/transformer.py`)
+```python
+class Transformer:
+    def __init__():
+        self.encoder = Encoder(...)
+        self.decoder = Decoder(...)
+    
+    def forward():  # 训练过程
+        # 1. 编码器处理源序列
+        enc_output = self.encoder(src, src_mask)
+        # 2. 解码器处理目标序列
+        output = self.decoder(tgt, enc_output, src_mask, tgt_mask)
+    
+    def generate():  # 推理过程
+        # 1. 编码器处理源序列
+        enc_output = self.encoder(src, src_mask)
+        # 2. 初始化解码器输入
+        tgt = torch.ones(batch_size, 1)  # 起始标记
+        # 3. 自回归生成
+        for _ in range(max_length - 1):
+            output = self.decoder(tgt, enc_output, src_mask, tgt_mask)
+            next_word = sample(output)
+            tgt = torch.cat([tgt, next_word], dim=1)
+```
+
+2. **编码器结构** (`src/models/encoder.py`)
+```python
+class Encoder:
+    def __init__():
+        # 1. 词嵌入层
+        self.embedding = nn.Embedding(...)
+        # 2. 位置编码层
+        self.pos_encoding = PositionalEncoding(...)
+        # 3. 编码器层堆叠
+        self.layers = nn.ModuleList([EncoderLayer(...) for _ in range(num_layers)])
+    
+    def forward():
+        # 1. 词嵌入
+        x = self.embedding(x)
+        # 2. 位置编码
+        x = self.pos_encoding(x)
+        # 3. 编码器层
+        for layer in self.layers:
+            x = layer(x, mask)
+```
+
+3. **解码器结构** (`src/models/decoder.py`)
+```python
+class Decoder:
+    def __init__():
+        # 1. 词嵌入层
+        self.embedding = nn.Embedding(...)
+        # 2. 位置编码层
+        self.pos_encoding = PositionalEncoding(...)
+        # 3. 解码器层堆叠
+        self.layers = nn.ModuleList([DecoderLayer(...) for _ in range(num_layers)])
+        # 4. 输出层
+        self.fc_out = nn.Linear(...)
+    
+    def forward():
+        # 1. 词嵌入
+        x = self.embedding(x)
+        # 2. 位置编码
+        x = self.pos_encoding(x)
+        # 3. 解码器层
+        for layer in self.layers:
+            x = layer(x, enc_output, src_mask, tgt_mask)
+        # 4. 输出层
+        x = self.fc_out(x)
+```
+
+4. **编码器层** (`src/models/encoder_layer.py`)
+```python
+class EncoderLayer:
+    def __init__():
+        # 1. 自注意力层
+        self.self_attention = MultiHeadAttention(...)
+        # 2. 前馈网络
+        self.feed_forward = FeedForward(...)
+        # 3. 层归一化
+        self.norm1 = LayerNorm(...)
+        self.norm2 = LayerNorm(...)
+    
+    def forward():
+        # 1. 自注意力
+        attn_output = self.self_attention(x, x, x, mask)
+        x = self.norm1(x + attn_output)
+        # 2. 前馈网络
+        ff_output = self.feed_forward(x)
+        x = self.norm2(x + ff_output)
+```
+
+5. **解码器层** (`src/models/decoder_layer.py`)
+```python
+class DecoderLayer:
+    def __init__():
+        # 1. 掩码自注意力层
+        self.self_attention = MultiHeadAttention(...)
+        # 2. 交叉注意力层
+        self.cross_attention = MultiHeadAttention(...)
+        # 3. 前馈网络
+        self.feed_forward = FeedForward(...)
+        # 4. 层归一化
+        self.norm1 = LayerNorm(...)
+        self.norm2 = LayerNorm(...)
+        self.norm3 = LayerNorm(...)
+    
+    def forward():
+        # 1. 掩码自注意力
+        attn_output = self.self_attention(x, x, x, tgt_mask)
+        x = self.norm1(x + attn_output)
+        # 2. 交叉注意力
+        attn_output = self.cross_attention(x, enc_output, enc_output, src_mask)
+        x = self.norm2(x + attn_output)
+        # 3. 前馈网络
+        ff_output = self.feed_forward(x)
+        x = self.norm3(x + ff_output)
+```
+
+6. **注意力机制** (`src/models/multi_head_attention.py`)
+```python
+class MultiHeadAttention:
+    def __init__():
+        # 1. 线性变换层
+        self.W_q = nn.Linear(...)
+        self.W_k = nn.Linear(...)
+        self.W_v = nn.Linear(...)
+        self.W_o = nn.Linear(...)
+    
+    def forward():
+        # 1. 线性变换
+        Q = self.W_q(q)
+        K = self.W_k(k)
+        V = self.W_v(v)
+        # 2. 分割多头
+        Q = Q.view(batch_size, -1, num_heads, d_k)
+        K = K.view(batch_size, -1, num_heads, d_k)
+        V = V.view(batch_size, -1, num_heads, d_k)
+        # 3. 计算注意力
+        scores = torch.matmul(Q, K.transpose(-2, -1)) / sqrt(d_k)
+        attn = softmax(scores)
+        output = torch.matmul(attn, V)
+        # 4. 合并多头
+        output = output.view(batch_size, -1, d_model)
+        # 5. 输出变换
+        output = self.W_o(output)
+```
+
+**训练和推理的主要区别**：
+
+1. **训练过程**：
+   - 编码器和解码器同步执行
+   - 输入完整的源序列和目标序列
+   - 使用教师强制（Teacher Forcing）
+   - 可以并行计算所有时间步
+
+2. **推理过程**：
+   - 编码器先执行，得到编码表示
+   - 解码器自回归生成，每次生成一个词
+   - 使用掩码确保只能看到当前位置之前的信息
+   - 需要串行计算每个时间步
+
+**数据流向**：
+
+1. **训练时**：
+```
+输入序列 -> 编码器 -> 编码表示
+目标序列 -> 解码器 -> 输出序列
+```
+
+2. **推理时**：
+```
+输入序列 -> 编码器 -> 编码表示
+起始标记 -> 解码器 -> 第一个词
+[起始标记, 第一个词] -> 解码器 -> 第二个词
+[起始标记, 第一个词, 第二个词] -> 解码器 -> 第三个词
+...
+```
+
+结构方法论：
+1. 理解模型的层次结构
+2. 了解各个组件的作用
+3. 掌握训练和推理的区别
+4. 理解数据流向
+
 ## 参考
 
 - [Attention Is All You Need](https://arxiv.org/abs/1706.03762)
