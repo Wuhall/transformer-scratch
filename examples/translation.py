@@ -28,7 +28,9 @@ def create_vocab(texts, min_freq=1):
     vocab.build(texts, min_freq=min_freq)
     return vocab
 
-
+"""
+文本 > 词汇表 > 索引 > 模型输入
+"""
 def prepare_data():
     """准备示例数据
     
@@ -108,7 +110,7 @@ def main():
         train_dataset,
         batch_size=32,
         shuffle=True,
-        collate_fn=train_dataset.collate_fn
+        collate_fn=train_dataset.collate_fn # 序列填充，将不同长度的序列填充到相同长度
     )
     val_dataloader = DataLoader(
         val_dataset,
